@@ -1,24 +1,24 @@
+const { createServer } = require('http');
 const { WebSocketServer, WebSocket } = require('ws');
 
-// Railway fournit un port dynamique via process.env.PORT, sinon on utilise le port 8080 en local
-const PORT = process.env.PORT || 8080;
-const wss = new WebSocketServer({ port: PORT });
+// Crée un serveur HTTP de base (nécessaire pour Render)
+const server = createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Serveur WebSocket Actif\n');
+});
 
-console.log(`Serveur WebSocket démarré et en écoute sur le port ${PORT}`);
+// Attache le WebSocket sur ce serveur HTTP
+const wss = new WebSocketServer({ server });
+
+console.log("Serveur WebSocket démarré");
 
 wss.on('connection', (ws) => {
     console.log("Nouvelle connexion établie.");
 
     ws.on('message', (message) => {
         try {
-            // Convertit le message reçu en texte (au cas où il arrive en buffer)
-            const messageStr = message.toString();
-            const data = JSON.parse(messageStr);
-            
-            // Si le message est un log envoyé par un bot, on le redistribue à tous les clients connectés (l'UI)
+            const data = JSON.parse(message.toString());
             if (data.type === "NEW_LOG") {
-                console.log(`[LOG REÇU] ${data.payload.Name} (${data.payload.Income})`);
-                
                 const broadcastData = JSON.stringify({
                     type: "ADD_LOG",
                     payload: data.payload
@@ -31,15 +31,13 @@ wss.on('connection', (ws) => {
                 });
             }
         } catch (err) {
-            console.error("Erreur de traitement du message:", err);
+            console.error("Erreur:", err);
         }
     });
+});
 
-    ws.on('close', () => {
-        console.log("Client déconnecté.");
-    });
-
-    ws.on('error', (err) => {
-        console.error("Erreur WebSocket:", err);
-    });
+// Utilise le port attribué par Render
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Serveur en écoute sur le port ${PORT}`);
 });
